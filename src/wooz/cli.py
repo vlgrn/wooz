@@ -4,6 +4,7 @@ import typer
 from rich.console import Console
 
 from wooz import __version__
+from wooz.agent import run as run_agent
 
 BANNER = r"""██╗    ██╗ ██████╗  ██████╗ ███████╗
 ██║    ██║██╔═══██╗██╔═══██╗╚══███╔╝
@@ -38,11 +39,9 @@ def _root(
     if ctx.invoked_subcommand is not None:
         return
     _print_header()
-    console.print("[yellow]MVP in progress.[/] Agent loop coming next commit.")
-    if mood:
-        console.print(f"[dim]mood override:[/] {mood}")
-    if duration:
-        console.print(f"[dim]duration target:[/] {duration} min")
+    exit_code = run_agent(console, mood=mood, duration=duration)
+    if exit_code:
+        raise typer.Exit(exit_code)
 
 
 @app.command()
