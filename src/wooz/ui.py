@@ -89,9 +89,7 @@ def read_user_input(console: Console, tracker: PlaybackTracker | None = None) ->
     width = max(20, console.width - 1)
     rule = "─" * (width - 2)
     console.print(f"[bold {SPOTIFY_GREEN}]╭{rule}╮[/]")
-    bottom_toolbar = (
-        (lambda: _format_progress(tracker.snapshot())) if tracker is not None else None
-    )
+    bottom_toolbar = (lambda: _format_progress(tracker.snapshot())) if tracker is not None else None
     try:
         return _get_session().prompt(
             HTML(f'<style fg="{SPOTIFY_GREEN}"><b>│ ❯ </b></style>'),  # noqa: RUF001
