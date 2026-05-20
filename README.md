@@ -16,7 +16,7 @@ wooz looks at what you're working on (your project + your recent Claude Code ses
 ## Install
 
 ```bash
-uv tool install git+https://github.com/valentingarnier/wooz
+uv tool install git+https://github.com/vlgrn/wooz
 ```
 
 Requires:
