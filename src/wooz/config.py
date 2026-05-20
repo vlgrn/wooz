@@ -14,8 +14,8 @@ CONFIG_DIR = Path.home() / ".wooz"
 SPOTIFY_TOKEN_FILE = CONFIG_DIR / "spotify.json"
 
 # Baked-in Client ID for the Spotify dev app (PKCE flow — no secret needed).
-# Falls back to env var for development. Set by the user during Phase B.
-SPOTIFY_CLIENT_ID: str | None = os.environ.get(ENV_SPOTIFY_CLIENT_ID) or None
+# Env var overrides for development / testing.
+SPOTIFY_CLIENT_ID = os.environ.get(ENV_SPOTIFY_CLIENT_ID, "9fd508c4c6564b58af5011f5780ef6da")
 SPOTIFY_REDIRECT_URI = "http://127.0.0.1:8765/callback"
 SPOTIFY_SCOPES = (
     "playlist-modify-private "

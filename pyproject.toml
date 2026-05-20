@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.13.4",
     "python-dotenv>=1.2.2",
     "rich>=15.0.0",
+    "spotipy>=2.26.0",
     "typer>=0.25.1",
 ]
 
@@ -41,3 +42,7 @@ python_version = "3.12"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = ["spotipy.*"]
+ignore_missing_imports = true

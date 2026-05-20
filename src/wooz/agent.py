@@ -5,7 +5,7 @@ from __future__ import annotations
 from rich.console import Console
 
 from wooz.config import MissingAnthropicKeyError, get_anthropic_key
-from wooz.spotify import SpogoMissingError, find_spogo
+from wooz.spotify import SpotifyAuthError, get_client, has_valid_token
 
 
 def run(
@@ -13,7 +13,7 @@ def run(
     mood: str | None = None,
     duration: int | None = None,
 ) -> int:
-    """Phase A: verify environment + dependencies. Phases C-F replace this with the real loop."""
+    """Verify environment + auth. Phases D-F replace this with the real agent loop."""
     try:
         get_anthropic_key()
     except MissingAnthropicKeyError as exc:
@@ -21,12 +21,20 @@ def run(
         return 1
     console.print("[green]✓[/] anthropic key found")
 
+    if not has_valid_token():
+        console.print("[dim]first run — opening Spotify auth in your browser...[/]")
     try:
-        find_spogo()
-    except SpogoMissingError as exc:
+        client = get_client()
+        # Force a real API call so PKCE actually runs and the token is cached.
+        user = client.current_user()
+    except SpotifyAuthError as exc:
         console.print(f"[red]error:[/] {exc}")
         return 1
-    console.print("[green]✓[/] spogo found on PATH")
+    except Exception as exc:
+        console.print(f"[red]error:[/] spotify auth failed: {exc}")
+        return 1
+    who = user.get("display_name") or user.get("id")
+    console.print(f"[green]✓[/] spotify authed as [bold]{who}[/]")
 
     console.print("[yellow]agent loop not implemented yet[/] (Phase D)")
     if mood:
