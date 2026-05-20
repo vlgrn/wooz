@@ -1,19 +1,24 @@
 from __future__ import annotations
 
 import typer
+from dotenv import load_dotenv
 from rich.console import Console
 
-from wooz import __version__
-from wooz.agent import run as run_agent
+load_dotenv()
 
-BANNER = r"""██╗    ██╗ ██████╗  ██████╗ ███████╗
+from wooz import __version__  # noqa: E402
+from wooz.agent import run as run_agent  # noqa: E402
+
+BANNER = r"""
+██╗    ██╗ ██████╗  ██████╗ ███████╗
 ██║    ██║██╔═══██╗██╔═══██╗╚══███╔╝
 ██║ █╗ ██║██║   ██║██║   ██║  ███╔╝
 ██║███╗██║██║   ██║██║   ██║ ███╔╝
 ╚███╔███╔╝╚██████╔╝╚██████╔╝███████╗
- ╚══╝╚══╝  ╚═════╝  ╚═════╝ ╚══════╝"""
+ ╚══╝╚══╝  ╚═════╝  ╚═════╝ ╚══════╝
+ """
 
-TAGLINE = "AI DJ for your terminal — reads what you are working on, plays the right music."
+TAGLINE = "AI DJ for your terminal - reads what you are working on, plays the right music."
 
 app = typer.Typer(
     name="wooz",

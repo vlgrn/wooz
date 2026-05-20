@@ -10,6 +10,7 @@ requires-python = ">=3.12"
 dependencies = [
     "anthropic>=0.103.1",
     "pydantic>=2.13.4",
+    "python-dotenv>=1.2.2",
     "rich>=15.0.0",
     "typer>=0.25.1",
 ]
