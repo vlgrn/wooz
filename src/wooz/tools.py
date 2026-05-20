@@ -20,12 +20,26 @@ TRACK_URI_RE = re.compile(r"^spotify:track:[A-Za-z0-9]{22}$")
 def tool_schemas() -> list[dict[str, Any]]:
     return [
         {
+            "name": "list_tools",
+            "description": (
+                "Returns the full catalog of tools you can call, with a short "
+                "description of when each is useful. Call this first to see what's "
+                "available before deciding what to do."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        },
+        {
             "name": "read_project_context",
             "description": (
-                "Snapshot the user's current project: working directory, project name, "
-                "git branch, last 5 commit messages, top file extensions, and a short "
-                "README excerpt if available. Call this first to understand what the "
-                "user is building."
+                "Reveals what the user is building right now: working directory, "
+                "project name, git branch, last 5 commit messages, top file "
+                "extensions, and a short README excerpt. Use this when you need to "
+                "infer the user's mood or activity from their work. Skip it if the "
+                "user has already told you what they want to hear."
             ),
             "input_schema": {
                 "type": "object",
@@ -36,9 +50,11 @@ def tool_schemas() -> list[dict[str, Any]]:
         {
             "name": "read_claude_session",
             "description": (
-                "Read the last N messages from the user's current Claude Code session "
-                "for this project. Use to infer mood/tone — debugging, building, "
-                "frustrated, focused?"
+                "Surfaces the last N messages from the user's current Claude Code "
+                "session for this project. Best signal for their emotional state — "
+                "stuck, flowing, debugging, exploring. Use when project context "
+                "alone doesn't tell you enough about their headspace, and skip it "
+                "if the user has already named what they want to hear."
             ),
             "input_schema": {
                 "type": "object",
@@ -55,8 +71,10 @@ def tool_schemas() -> list[dict[str, Any]]:
         {
             "name": "spotify_search",
             "description": (
-                "Search Spotify for tracks. Natural-language vibe/mood/genre phrases "
-                "work best (e.g. 'instrumental lofi for focus'). Returns track URIs."
+                "Searches Spotify and returns real track URIs. Any query works — "
+                "vibe phrases ('instrumental lofi for focus'), genres, artist "
+                "names, song titles. Call as many times as you need to find a "
+                "track you can confidently play."
             ),
             "input_schema": {
                 "type": "object",
@@ -74,9 +92,9 @@ def tool_schemas() -> list[dict[str, Any]]:
         {
             "name": "spotify_play_track",
             "description": (
-                "Play ONE Spotify track on the user's local Spotify app. Pass the "
-                "spotify:track:... URI of the single track you want to play right "
-                "now. wooz plays one track at a time — never queue multiple."
+                "Plays ONE Spotify track on the user's local Spotify app. Only "
+                "call when you're confident the track fits the user's request. "
+                "wooz plays one track at a time — never queue more than one."
             ),
             "input_schema": {
                 "type": "object",
@@ -105,6 +123,14 @@ def tool_schemas() -> list[dict[str, Any]]:
 
 
 def dispatch(name: str, args: dict[str, Any]) -> dict[str, Any]:
+    if name == "list_tools":
+        return {
+            "tools": [
+                {"name": t["name"], "description": t["description"]}
+                for t in tool_schemas()
+                if t["name"] != "list_tools"
+            ],
+        }
     if name == "read_project_context":
         return read_project_context().model_dump()
     if name == "read_claude_session":

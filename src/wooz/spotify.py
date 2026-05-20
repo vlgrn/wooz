@@ -1,8 +1,8 @@
-"""Spotify backend — zero-setup for the end user.
+"""Spotify backend: catalog search + local desktop playback control.
 
-Search uses Spotify's `client_credentials` flow with a baked-in app key (read-only,
-no user OAuth needed). Playback is driven through the local Spotify desktop app
-via AppleScript on macOS (no API, no Premium dance via web).
+Search uses Spotify's `client_credentials` flow with a baked-in app key
+(read-only, no user OAuth). Playback is driven through the local Spotify
+desktop app via AppleScript on macOS (no API, no Premium dance via web).
 """
 
 from __future__ import annotations
@@ -16,8 +16,7 @@ from pathlib import Path
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 
-# Shared "wooz public" Spotify app — used only for catalog search.
-# Spotify rate-limits the app, not individual users. No user data passes through.
+# Public app key — only used for catalog search. No user data passes through.
 WOOZ_PUBLIC_CLIENT_ID = "9fd508c4c6564b58af5011f5780ef6da"
 WOOZ_PUBLIC_CLIENT_SECRET = "b2355016f52e424580be7c1d690a763d"
 
@@ -29,7 +28,7 @@ class SpotifyError(RuntimeError):
     """Generic Spotify failure (no app open, no track, etc)."""
 
 
-# ── Search ──────────────────────────────────────────────────────────────────
+# ── Search (Web API) ────────────────────────────────────────────────────────
 
 
 def get_search_client() -> spotipy.Spotify:
@@ -56,12 +55,11 @@ def search_tracks(client: spotipy.Spotify, query: str, limit: int = 10) -> list[
     ]
 
 
-# ── Playback (AppleScript / desktop control, no API auth required) ──────────
+# ── Desktop playback (AppleScript) ──────────────────────────────────────────
 
 
-def _run_osascript(script: str) -> str:
-    """Run an AppleScript and return stdout. Raises SpotifyError with friendly
-    messages for common failure modes (no permission, Spotify quit, etc.)."""
+def run_osascript(script: str) -> str:
+    """Run AppleScript; raise SpotifyError with friendly text on common failures."""
     if platform.system() != "Darwin":
         raise SpotifyError(
             "playback control is currently macOS-only (AppleScript). Linux/Windows coming soon."
@@ -74,8 +72,7 @@ def _run_osascript(script: str) -> str:
     )
     if result.returncode != 0:
         stderr = result.stderr.strip()
-        # -1743 = "Not authorized to send Apple events"
-        # -600  = "Application is not running"
+        # -1743: not authorized to send Apple events.  -600: app not running.
         if "-1743" in stderr or "not allowed" in stderr.lower():
             raise SpotifyError(
                 "macOS hasn't allowed wooz to control Spotify yet. "
@@ -99,7 +96,7 @@ def _spotify_installed() -> bool:
 def _spotify_running() -> bool:
     if platform.system() != "Darwin":
         return False
-    out = _run_osascript(
+    out = run_osascript(
         'tell application "System Events" to (name of processes) contains "Spotify"'
     )
     return out.lower() == "true"
@@ -126,30 +123,29 @@ def ensure_spotify_open() -> None:
 
 
 def play_track(uri: str) -> None:
-    """Play a single track URI on the local Spotify desktop app."""
     ensure_spotify_open()
-    _run_osascript(f'tell application "Spotify" to play track "{uri}"')
+    run_osascript(f'tell application "Spotify" to play track "{uri}"')
 
 
 def pause_playback() -> None:
-    _run_osascript('tell application "Spotify" to pause')
+    run_osascript('tell application "Spotify" to pause')
 
 
 def resume_playback() -> None:
-    _run_osascript('tell application "Spotify" to play')
+    run_osascript('tell application "Spotify" to play')
 
 
 def player_state() -> str:
     """Return 'playing' | 'paused' | 'stopped'."""
-    return _run_osascript('tell application "Spotify" to get player state').lower()
+    return run_osascript('tell application "Spotify" to get player state').lower()
 
 
 def current_track() -> dict[str, str] | None:
-    """Return {name, artist, uri} for the currently loaded track, or None."""
+    """Return {name, artist, uri} for the loaded track, or None."""
     try:
-        name = _run_osascript('tell application "Spotify" to get name of current track')
-        artist = _run_osascript('tell application "Spotify" to get artist of current track')
-        uri = _run_osascript('tell application "Spotify" to get spotify url of current track')
+        name = run_osascript('tell application "Spotify" to get name of current track')
+        artist = run_osascript('tell application "Spotify" to get artist of current track')
+        uri = run_osascript('tell application "Spotify" to get spotify url of current track')
     except SpotifyError:
         return None
     if not name:

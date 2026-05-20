@@ -8,6 +8,7 @@ load_dotenv()
 
 from wooz import __version__  # noqa: E402
 from wooz.agent import run as run_agent  # noqa: E402
+from wooz.theme import SPOTIFY_GREEN  # noqa: E402
 
 BANNER = r"""
 ██╗    ██╗ ██████╗  ██████╗ ███████╗
@@ -28,7 +29,7 @@ console = Console()
 
 
 def _print_header() -> None:
-    console.print(BANNER, style="bold cyan")
+    console.print(BANNER, style=f"bold {SPOTIFY_GREEN}")
     console.print(f"wooz {__version__} — [dim]{TAGLINE}[/]\n")
 
 
