@@ -13,37 +13,6 @@
 
 ---
 
-## What it actually does
-
-```
-$ wooz
-✓ anthropic key found
-✓ spotify authed as valentin
-
-▶ read_project_context
-  ⎿ project=wooz · branch=main
-    files: .py(11), .md(2), .yml(2)
-    latest commit: feat: switch to confidential OAuth and add spotify_play_tracks
-▶ read_claude_session  (limit=20)
-  ⎿ 20 messages
-    latest [assistant]: All green. Smoke-tested end-to-end...
-▶ spotify_search  (query='minimal hypnotic electronic for deep focus')
-  ⎿ 10 tracks
-    ♪ Modularity — Cignol
-    ♪ Says — Nils Frahm
-    ...
-▶ spotify_play_tracks
-  ⎿ playing 18 tracks on MacBook Air
-
-Hypnotic, low-friction electronics for focused building.
-```
-
-It launches Spotify if it isn't already open. Music starts. You go back to coding.
-
----
-
-## Quick start
-
 ### 1. Install
 
 ```bash

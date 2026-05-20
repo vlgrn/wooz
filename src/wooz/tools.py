@@ -84,8 +84,16 @@ def tool_schemas() -> list[dict[str, Any]]:
                         "type": "string",
                         "description": "Display name 'Track — Artist' for the UI.",
                     },
+                    "vibe": {
+                        "type": "string",
+                        "description": (
+                            "Short phrase capturing the vibe of this track "
+                            "(e.g. 'focused instrumental lofi'). Used to find "
+                            "the next track in the same mood."
+                        ),
+                    },
                 },
-                "required": ["track_uri", "track_name"],
+                "required": ["track_uri", "track_name", "vibe"],
             },
         },
     ]
