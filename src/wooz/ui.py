@@ -59,8 +59,21 @@ def assistant_text(console: Console, text: str) -> None:
 
 def _summarise(name: str, output: dict[str, Any]) -> list[str]:
     """Return 1-4 lines summarising the tool result for display under the tool call."""
+    if name == "read_claude_session":
+        messages = output.get("messages") or []
+        if not messages:
+            return ["no session found for this project"]
+        lines = [f"{len(messages)} message(s)"]
+        last = messages[-1]
+        preview = last.get("text", "").splitlines()[0] if last.get("text") else ""
+        if len(preview) > 70:
+            preview = preview[:67] + "..."
+        if preview:
+            lines.append(f"latest [{last.get('role', '?')}]: {preview}")
+        return lines
+
     if name == "read_project_context":
-        lines: list[str] = []
+        lines = []
         head = []
         if output.get("project_name"):
             head.append(f"project={output['project_name']}")
