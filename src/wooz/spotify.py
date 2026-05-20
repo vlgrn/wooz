@@ -60,7 +60,8 @@ def search_tracks(client: spotipy.Spotify, query: str, limit: int = 10) -> list[
 
 
 def _run_osascript(script: str) -> str:
-    """Run an AppleScript and return stdout. Raises if osascript not on this OS."""
+    """Run an AppleScript and return stdout. Raises SpotifyError with friendly
+    messages for common failure modes (no permission, Spotify quit, etc.)."""
     if platform.system() != "Darwin":
         raise SpotifyError(
             "playback control is currently macOS-only (AppleScript). Linux/Windows coming soon."
@@ -72,7 +73,18 @@ def _run_osascript(script: str) -> str:
         check=False,
     )
     if result.returncode != 0:
-        raise SpotifyError(result.stderr.strip() or "AppleScript failed")
+        stderr = result.stderr.strip()
+        # -1743 = "Not authorized to send Apple events"
+        # -600  = "Application is not running"
+        if "-1743" in stderr or "not allowed" in stderr.lower():
+            raise SpotifyError(
+                "macOS hasn't allowed wooz to control Spotify yet. "
+                "Open System Settings -> Privacy & Security -> Automation and "
+                "enable your terminal app's access to Spotify, then try again."
+            )
+        if "-600" in stderr or "isn't running" in stderr.lower():
+            raise SpotifyError("Spotify is not running. Open it and try again.")
+        raise SpotifyError(stderr or "AppleScript failed")
     return result.stdout.strip()
 
 

@@ -6,10 +6,15 @@ format. Dispatch maps the name Claude picks to the actual Python implementation.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
+from spotipy.exceptions import SpotifyException
+
 from wooz.context import read_claude_session, read_project_context
-from wooz.spotify import get_search_client, play_track, search_tracks
+from wooz.spotify import SpotifyError, get_search_client, play_track, search_tracks
+
+TRACK_URI_RE = re.compile(r"^spotify:track:[A-Za-z0-9]{22}$")
 
 
 def tool_schemas() -> list[dict[str, Any]]:
@@ -109,10 +114,39 @@ def dispatch(name: str, args: dict[str, Any]) -> dict[str, Any]:
     if name == "spotify_search":
         query = str(args["query"])
         limit = min(int(args.get("limit", 10)), 10)
-        tracks = search_tracks(get_search_client(), query=query, limit=limit)
+        try:
+            tracks = search_tracks(get_search_client(), query=query, limit=limit)
+        except SpotifyException as exc:
+            return {
+                "error": (
+                    f"Spotify API error during search ({exc.http_status}): {exc.msg}. "
+                    "Try again with a different query."
+                ),
+            }
+        except Exception as exc:
+            return {"error": f"search failed: {exc}. Try again."}
+        if not tracks:
+            return {
+                "tracks": [],
+                "note": (
+                    f"no tracks matched '{query}'. Broaden the query "
+                    "(drop specific artists, use mood/genre words only) and try again."
+                ),
+            }
         return {"tracks": tracks}
     if name == "spotify_play_track":
         uri = str(args["track_uri"])
-        play_track(uri)
+        if not TRACK_URI_RE.match(uri):
+            return {
+                "error": (
+                    f"invalid track URI: {uri!r}. Must be a real Spotify URI returned "
+                    "by spotify_search (format: spotify:track:<22-char-id>). "
+                    "Do not invent URIs — call spotify_search first."
+                ),
+            }
+        try:
+            play_track(uri)
+        except SpotifyError as exc:
+            return {"error": str(exc)}
         return {"now_playing": str(args.get("track_name", uri))}
     raise ValueError(f"Unknown tool: {name}")

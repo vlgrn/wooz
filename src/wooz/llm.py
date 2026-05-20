@@ -14,10 +14,11 @@ from wooz.tools import dispatch
 
 MAX_TOKENS = 2048
 MAX_ITERATIONS = 12  # safety: stop runaway loops
+SDK_MAX_RETRIES = 4  # SDK retries 429/5xx/timeouts with exponential backoff
 
 
 def make_client() -> Anthropic:
-    return Anthropic(api_key=get_anthropic_key())
+    return Anthropic(api_key=get_anthropic_key(), max_retries=SDK_MAX_RETRIES)
 
 
 @dataclass

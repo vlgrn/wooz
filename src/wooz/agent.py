@@ -4,7 +4,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from anthropic import Anthropic
+from anthropic import (
+    Anthropic,
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    AuthenticationError,
+    InternalServerError,
+    PermissionDeniedError,
+    RateLimitError,
+)
 from rich.console import Console
 from rich.prompt import Prompt
 
@@ -112,6 +121,36 @@ def _ensure_anthropic_key(console: Console) -> str:
     return key
 
 
+def _report_anthropic_error(console: Console, exc: Exception) -> None:
+    """Map Anthropic exceptions to user-friendly messages."""
+    if isinstance(exc, AuthenticationError):
+        console.print(
+            "[red]anthropic auth failed[/] — your API key looks invalid.\n"
+            "[dim]Edit ~/.wooz/.env or unset ANTHROPIC_API_KEY and re-run wooz.[/]"
+        )
+    elif isinstance(exc, PermissionDeniedError):
+        console.print(
+            "[red]permission denied[/] — your key may not have access to this model.\n"
+            f"[dim]{exc}[/]"
+        )
+    elif isinstance(exc, RateLimitError):
+        console.print(
+            "[yellow]rate limited[/] by Anthropic. Wait a moment, then try /next."
+        )
+    elif isinstance(exc, APITimeoutError):
+        console.print("[yellow]request timed out[/] after retries. Try /next.")
+    elif isinstance(exc, InternalServerError):
+        console.print("[yellow]Anthropic 5xx[/] — they had a hiccup. Try /next.")
+    elif isinstance(exc, APIConnectionError):
+        console.print(
+            "[yellow]network issue[/] reaching Anthropic. Check your connection, then /next."
+        )
+    elif isinstance(exc, APIStatusError):
+        console.print(f"[red]Anthropic error[/] (status {exc.status_code}): {exc.message}")
+    else:
+        console.print(f"[red]error during agent turn:[/] {exc}")
+
+
 def _run_one_turn(
     console: Console,
     claude: Anthropic,
@@ -120,7 +159,8 @@ def _run_one_turn(
     hint: str | None = None,
     verbose: bool = False,
 ) -> None:
-    """Drive one agent run: search + play one track. Updates state in place."""
+    """Drive one agent run: search + play one track. Updates state in place.
+    Recoverable Anthropic errors are surfaced; the REPL stays alive."""
     user_prompt = _build_user_prompt(state, hint)
 
     events = run_agent(
@@ -130,29 +170,41 @@ def _run_one_turn(
         user_prompt=user_prompt,
     )
 
-    while True:
-        with console.status("[bold cyan]thinking[/]", spinner="dots"):
-            try:
-                event = next(events)
-            except StopIteration:
-                break
+    try:
+        while True:
+            with console.status("[bold cyan]thinking[/]", spinner="dots"):
+                try:
+                    event = next(events)
+                except StopIteration:
+                    break
 
-        if isinstance(event, ThinkingEvent):
-            thinking(console, event.text, verbose=verbose)
-        elif isinstance(event, ToolCallEvent):
-            tool_call(console, event.name, event.input)
-            # Capture vibe + URI as soon as Claude commits to a track.
-            if event.name == "spotify_play_track":
-                state.remember(
-                    uri=str(event.input.get("track_uri", "")),
-                    vibe=str(event.input.get("vibe", "")),
-                )
-        elif isinstance(event, ToolResultEvent):
-            tool_result(console, event.name, event.output)
-        elif isinstance(event, TextEvent):
-            assistant_text(console, event.text)
-        elif isinstance(event, DoneEvent):
-            return
+            if isinstance(event, ThinkingEvent):
+                thinking(console, event.text, verbose=verbose)
+            elif isinstance(event, ToolCallEvent):
+                tool_call(console, event.name, event.input)
+                if event.name == "spotify_play_track":
+                    state.remember(
+                        uri=str(event.input.get("track_uri", "")),
+                        vibe=str(event.input.get("vibe", "")),
+                    )
+            elif isinstance(event, ToolResultEvent):
+                tool_result(console, event.name, event.output)
+            elif isinstance(event, TextEvent):
+                assistant_text(console, event.text)
+            elif isinstance(event, DoneEvent):
+                return
+    except (
+        AuthenticationError,
+        PermissionDeniedError,
+        RateLimitError,
+        APITimeoutError,
+        InternalServerError,
+        APIConnectionError,
+        APIStatusError,
+    ) as exc:
+        _report_anthropic_error(console, exc)
+    except Exception as exc:
+        _report_anthropic_error(console, exc)
 
 
 def _handle_slash(console: Console, state: WoozState, cmd: str) -> None:
