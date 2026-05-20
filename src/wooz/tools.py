@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from wooz.context import read_claude_session, read_project_context
-from wooz.spotify import get_client, search_tracks
+from wooz.spotify import get_client, play_tracks, search_tracks
 
 
 def tool_schemas() -> list[dict[str, Any]]:
@@ -76,6 +76,27 @@ def tool_schemas() -> list[dict[str, Any]]:
                 "required": ["query"],
             },
         },
+        {
+            "name": "spotify_play_tracks",
+            "description": (
+                "Start playback of the given tracks (in order) on the user's best "
+                "available Spotify device. If no device is currently active, wakes "
+                "up the first available one (phone, desktop, or browser). "
+                "Pass the full list of track URIs after spotify_search."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "track_uris": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Ordered list of Spotify track URIs.",
+                        "minItems": 1,
+                    },
+                },
+                "required": ["track_uris"],
+            },
+        },
     ]
 
 
@@ -92,4 +113,10 @@ def dispatch(name: str, args: dict[str, Any]) -> dict[str, Any]:
         limit = min(int(args.get("limit", 10)), 10)
         tracks = search_tracks(get_client(), query=query, limit=limit)
         return {"tracks": tracks}
+    if name == "spotify_play_tracks":
+        result = play_tracks(
+            get_client(),
+            track_uris=list(args["track_uris"]),
+        )
+        return result
     raise ValueError(f"Unknown tool: {name}")

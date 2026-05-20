@@ -59,6 +59,14 @@ def assistant_text(console: Console, text: str) -> None:
 
 def _summarise(name: str, output: dict[str, Any]) -> list[str]:
     """Return 1-4 lines summarising the tool result for display under the tool call."""
+    if name == "spotify_play_tracks":
+        n = output.get("started_count", 0)
+        device = output.get("device_name", "")
+        line = f"playing {n} track(s)"
+        if device:
+            line += f" on [bold]{device}[/]"
+        return [line]
+
     if name == "spotify_search":
         tracks = output.get("tracks") or []
         if not tracks:

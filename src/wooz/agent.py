@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from rich.console import Console
 
-from wooz.config import MissingAnthropicKeyError, get_anthropic_key
+from wooz.config import MissingAnthropicKeyError, MissingSpotifySecretError, get_anthropic_key
 from wooz.llm import (
     DoneEvent,
     TextEvent,
@@ -24,13 +24,15 @@ SYSTEM_PROMPT = (
     "STRICT workflow — do not deviate:\n"
     "1. read_project_context — ONCE\n"
     "2. read_claude_session — ONCE\n"
-    "3. spotify_search — AT MOST 2 calls, each with a single focused query that "
-    "captures the vibe directly. Aim for ~20 tracks across the two calls.\n"
-    "4. Final summary — ONE short sentence stating the vibe you picked.\n"
+    "3. spotify_search — AT MOST 2 calls, each with a focused query. Aim for ~20 "
+    "tracks total across the two calls.\n"
+    "4. spotify_play_tracks — ONCE, passing ALL the track URIs you gathered from "
+    "the searches, in the order you want them played.\n"
+    "5. Final summary — ONE short sentence stating the vibe you picked.\n"
     "\n"
     "RULES:\n"
-    "- Do NOT narrate between tool calls. No 'let me check', no 'going deeper', no "
-    "'let me round out'. Just call the next tool silently.\n"
+    "- Do NOT narrate between tool calls. No 'let me check', no 'going deeper'. "
+    "Just call the next tool silently.\n"
     "- Do NOT refine searches after the first two. Commit to what you got.\n"
     "- Do NOT use artist:X queries — they return poor results. Use vibe/genre/mood "
     "phrases instead."
@@ -58,6 +60,9 @@ def run(
     try:
         sp = get_client()
         user = sp.current_user()
+    except MissingSpotifySecretError as exc:
+        console.print(f"[red]error:[/] {exc}")
+        return 1
     except SpotifyAuthError as exc:
         console.print(f"[red]error:[/] {exc}")
         return 1

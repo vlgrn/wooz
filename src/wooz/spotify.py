@@ -1,14 +1,24 @@
-"""Spotify backend — OAuth 2.0 PKCE via spotipy.
+"""Spotify backend — confidential OAuth 2.0 via spotipy.
 
 First run opens a browser; user approves; tokens cached at ~/.wooz/spotify.json.
 Subsequent runs load from cache and auto-refresh when expired.
+
+We use confidential OAuth (client_id + client_secret) rather than PKCE because
+Spotify rejects PKCE-issued tokens on certain write endpoints (e.g. create
+playlist) with a generic 403.
 """
 
 from __future__ import annotations
 
+import platform
+import shutil
+import subprocess
+import time
+from pathlib import Path
+
 import spotipy
 from spotipy.cache_handler import CacheFileHandler
-from spotipy.oauth2 import SpotifyPKCE
+from spotipy.oauth2 import SpotifyOAuth
 
 from wooz.config import (
     SPOTIFY_CLIENT_ID,
@@ -16,17 +26,22 @@ from wooz.config import (
     SPOTIFY_SCOPES,
     SPOTIFY_TOKEN_FILE,
     ensure_config_dir,
+    get_spotify_client_secret,
 )
+
+LAUNCH_WAIT_ATTEMPTS = 10
+LAUNCH_WAIT_DELAY_S = 1.0
 
 
 class SpotifyAuthError(RuntimeError):
     """Raised when Spotify auth cannot be completed."""
 
 
-def _auth_manager(open_browser: bool = True) -> SpotifyPKCE:
+def _auth_manager(open_browser: bool = True) -> SpotifyOAuth:
     ensure_config_dir()
-    return SpotifyPKCE(
+    return SpotifyOAuth(
         client_id=SPOTIFY_CLIENT_ID,
+        client_secret=get_spotify_client_secret(),
         redirect_uri=SPOTIFY_REDIRECT_URI,
         scope=SPOTIFY_SCOPES,
         cache_handler=CacheFileHandler(cache_path=str(SPOTIFY_TOKEN_FILE)),
@@ -73,30 +88,66 @@ def search_tracks(client: spotipy.Spotify, query: str, limit: int = 10) -> list[
     ]
 
 
-def create_playlist(
+def _try_launch_spotify() -> bool:
+    """Best-effort launch of the native Spotify app. Returns True if a launch was attempted."""
+    system = platform.system()
+    if system == "Darwin":
+        if Path("/Applications/Spotify.app").exists():
+            subprocess.Popen(["open", "-a", "Spotify"])
+            return True
+        return False
+    if system == "Linux":
+        if shutil.which("spotify"):
+            subprocess.Popen(["spotify"], start_new_session=True)
+            return True
+        return False
+    return False
+
+
+def _wait_for_devices(client: spotipy.Spotify) -> list[dict[str, object]]:
+    """Poll for a Spotify device to appear after we launched the app."""
+    for _ in range(LAUNCH_WAIT_ATTEMPTS):
+        devices: list[dict[str, object]] = (client.devices() or {}).get("devices", [])
+        if devices:
+            return devices
+        time.sleep(LAUNCH_WAIT_DELAY_S)
+    return []
+
+
+def play_tracks(
     client: spotipy.Spotify,
-    name: str,
-    description: str,
     track_uris: list[str],
-    public: bool = False,
-) -> dict[str, str]:
-    """Create a new playlist on the user's account and add the given track URIs.
-    Returns {id, name, url}."""
-    user = client.current_user()
-    playlist = client.user_playlist_create(
-        user=user["id"],
-        name=name,
-        public=public,
-        description=description,
-    )
-    if track_uris:
-        # Spotify caps at 100 per add — chunk just in case.
-        for i in range(0, len(track_uris), 100):
-            client.playlist_add_items(playlist["id"], track_uris[i : i + 100])
+) -> dict[str, object]:
+    """Start playback of `track_uris` (in order) on the user's best available device.
+    If no device is found, tries to auto-launch the native Spotify app, then waits
+    briefly for it to register as a Connect device."""
+    devices = (client.devices() or {}).get("devices", [])
+    auto_launched = False
+    if not devices and _try_launch_spotify():
+        auto_launched = True
+        devices = _wait_for_devices(client)
+
+    if not devices:
+        hint = (
+            " (we tried to launch the Spotify app but it did not register in time)"
+            if auto_launched
+            else " — open Spotify on a device, then try again"
+        )
+        raise SpotifyAuthError(f"no Spotify devices available{hint}.")
+
+    active = next((d for d in devices if d.get("is_active")), None)
+    target = active or devices[0]
+    target_id = target["id"]
+    target_name = target.get("name", "")
+
+    if not active:
+        client.transfer_playback(target_id, force_play=False)
+
+    client.start_playback(device_id=target_id, uris=track_uris)
     return {
-        "id": playlist["id"],
-        "name": playlist["name"],
-        "url": playlist.get("external_urls", {}).get("spotify", ""),
+        "started_count": len(track_uris),
+        "device_name": target_name,
+        "auto_launched": auto_launched,
     }
 
 
