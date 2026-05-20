@@ -19,16 +19,24 @@ from wooz.tools import tool_schemas
 from wooz.ui import assistant_text, thinking, tool_call, tool_result
 
 SYSTEM_PROMPT = (
-    "You are wooz, an AI DJ for developer terminals. Given the user's current project "
-    "context, infer the right music vibe for what they are working on. "
-    "Use the tools to gather context first. Be concise."
+    "You are wooz, an AI DJ for developer terminals. "
+    "\n\n"
+    "STRICT workflow — do not deviate:\n"
+    "1. read_project_context — ONCE\n"
+    "2. read_claude_session — ONCE\n"
+    "3. spotify_search — AT MOST 2 calls, each with a single focused query that "
+    "captures the vibe directly. Aim for ~20 tracks across the two calls.\n"
+    "4. Final summary — ONE short sentence stating the vibe you picked.\n"
+    "\n"
+    "RULES:\n"
+    "- Do NOT narrate between tool calls. No 'let me check', no 'going deeper', no "
+    "'let me round out'. Just call the next tool silently.\n"
+    "- Do NOT refine searches after the first two. Commit to what you got.\n"
+    "- Do NOT use artist:X queries — they return poor results. Use vibe/genre/mood "
+    "phrases instead."
 )
 
-USER_PROMPT = (
-    "Look at the user's current project. In 2-3 sentences, describe the vibe of music "
-    "that would fit what they are working on right now (energy, mood, genre). "
-    "Be specific to what you find."
-)
+USER_PROMPT = "DJ me a set for what I'm working on right now."
 
 
 def run(

@@ -59,6 +59,22 @@ def assistant_text(console: Console, text: str) -> None:
 
 def _summarise(name: str, output: dict[str, Any]) -> list[str]:
     """Return 1-4 lines summarising the tool result for display under the tool call."""
+    if name == "spotify_search":
+        tracks = output.get("tracks") or []
+        if not tracks:
+            return ["no tracks found"]
+        lines = [f"{len(tracks)} track(s)"]
+        for t in tracks[:3]:
+            artist = t.get("artist", "")
+            name_ = t.get("name", "")
+            line = f"♪ {name_}  [dim]— {artist}[/]" if artist else f"♪ {name_}"
+            if len(line) > 90:
+                line = line[:87] + "..."
+            lines.append(line)
+        if len(tracks) > 3:
+            lines.append(f"... + {len(tracks) - 3} more")
+        return lines
+
     if name == "read_claude_session":
         messages = output.get("messages") or []
         if not messages:

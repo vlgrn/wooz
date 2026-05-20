@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from wooz.context import read_claude_session, read_project_context
+from wooz.spotify import get_client, search_tracks
 
 
 def tool_schemas() -> list[dict[str, Any]]:
@@ -50,6 +51,31 @@ def tool_schemas() -> list[dict[str, Any]]:
                 "required": [],
             },
         },
+        {
+            "name": "spotify_search",
+            "description": (
+                "Search Spotify for tracks. Use this to find songs that match the vibe "
+                "you decided on. Queries: natural language vibe/mood/genre phrases "
+                "(e.g. 'instrumental lofi for focus', 'energetic synthwave') work best. "
+                "Returns track URIs you will need for creating playlists."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Search query. Natural language vibe phrases.",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Number of results (default 10, MAX 10).",
+                        "minimum": 1,
+                        "maximum": 10,
+                    },
+                },
+                "required": ["query"],
+            },
+        },
     ]
 
 
@@ -61,4 +87,9 @@ def dispatch(name: str, args: dict[str, Any]) -> dict[str, Any]:
         limit = int(args.get("limit", 20))
         messages = read_claude_session(limit=limit)
         return {"messages": [m.model_dump() for m in messages]}
+    if name == "spotify_search":
+        query = str(args["query"])
+        limit = min(int(args.get("limit", 10)), 10)
+        tracks = search_tracks(get_client(), query=query, limit=limit)
+        return {"tracks": tracks}
     raise ValueError(f"Unknown tool: {name}")
