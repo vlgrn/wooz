@@ -8,10 +8,10 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "ollama>=0.6.2",
-    "psutil>=7.2.2",
+    "anthropic>=0.103.1",
     "pydantic>=2.13.4",
     "rich>=15.0.0",
+    "spotipy>=2.26.0",
     "typer>=0.25.1",
 ]
 
