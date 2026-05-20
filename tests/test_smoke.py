@@ -1,7 +1,7 @@
 from typer.testing import CliRunner
 
-from tinker import __version__
-from tinker.cli import app
+from wooz import __version__
+from wooz.cli import app
 
 runner = CliRunner()
 
@@ -15,7 +15,7 @@ def test_version_constant_format() -> None:
 def test_cli_help_runs() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    assert "tinker" in result.stdout.lower()
+    assert "wooz" in result.stdout.lower()
 
 
 def test_cli_version_command() -> None:

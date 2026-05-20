@@ -1,7 +1,7 @@
 [project]
-name = "tinker"
+name = "wooz"
 version = "0.1.0"
-description = "Local AI assistant powered by small LLMs via Ollama"
+description = "AI DJ for your terminal — reads what you are working on, plays the right music."
 readme = "README.md"
 authors = [
     { name = "Valentin Garnier", email = "valentingarnier@live.fr" }
@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.scripts]
-tinker = "tinker.cli:app"
+wooz = "wooz.cli:app"
 
 [build-system]
 requires = ["hatchling"]

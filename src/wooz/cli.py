@@ -11,8 +11,8 @@ from rich.prompt import Prompt
 from rich.table import Table
 from rich.text import Text
 
-from tinker import __version__
-from tinker.client import (
+from wooz import __version__
+from wooz.client import (
     DEFAULT_MODEL,
     Message,
     chat_stream,
@@ -20,14 +20,12 @@ from tinker.client import (
     make_client,
 )
 
-BANNER = r"""'########:'####:'##::: ##:'##:::'##:'########:'########::
-... ##..::. ##:: ###:: ##: ##::'##:: ##.....:: ##.... ##:
-::: ##::::: ##:: ####: ##: ##:'##::: ##::::::: ##:::: ##:
-::: ##::::: ##:: ## ## ##: #####:::: ######::: ########::
-::: ##::::: ##:: ##. ####: ##. ##::: ##...:::: ##.. ##:::
-::: ##::::: ##:: ##:. ###: ##:. ##:: ##::::::: ##::. ##::
-::: ##::::'####: ##::. ##: ##::. ##: ########: ##:::. ##:
-:::..:::::....::..::::..::..::::..::........::..:::::..::"""
+BANNER = r"""██╗    ██╗ ██████╗  ██████╗ ███████╗
+██║    ██║██╔═══██╗██╔═══██╗╚══███╔╝
+██║ █╗ ██║██║   ██║██║   ██║  ███╔╝
+██║███╗██║██║   ██║██║   ██║ ███╔╝
+╚███╔███╔╝╚██████╔╝╚██████╔╝███████╗
+ ╚══╝╚══╝  ╚═════╝  ╚═════╝ ╚══════╝"""
 
 EXIT_COMMANDS = {"/exit", "/quit", "/q"}
 SLASH_HELP = """\
@@ -38,8 +36,8 @@ SLASH_HELP = """\
   [cyan]/exit[/]            quit (also /quit, /q, Ctrl+D)"""
 
 app = typer.Typer(
-    name="tinker",
-    help="Local AI assistant powered by small LLMs via Ollama.",
+    name="wooz",
+    help="AI DJ for your terminal — reads what you are working on, plays the right music.",
 )
 console = Console()
 
@@ -68,7 +66,7 @@ def _bot_panel(content: str, model: str) -> Panel:
 def _print_header(model: str) -> None:
     console.print(BANNER, style="bold cyan")
     console.print(
-        f"tinker {__version__} — model: [bold cyan]{model}[/] — [dim]/help for commands[/]\n"
+        f"wooz {__version__} — model: [bold cyan]{model}[/] — [dim]/help for commands[/]\n"
     )
 
 
@@ -221,8 +219,8 @@ def models() -> None:
 
 @app.command()
 def version() -> None:
-    """Print the tinker version."""
-    console.print(f"tinker {__version__}")
+    """Print the wooz version."""
+    console.print(f"wooz {__version__}")
 
 
 if __name__ == "__main__":
