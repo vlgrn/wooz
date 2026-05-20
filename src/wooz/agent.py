@@ -3,8 +3,13 @@
 from __future__ import annotations
 
 from rich.console import Console
+from rich.prompt import Prompt
 
-from wooz.config import MissingAnthropicKeyError, MissingSpotifySecretError, get_anthropic_key
+from wooz.config import (
+    MissingAnthropicKeyError,
+    get_anthropic_key,
+    save_anthropic_key,
+)
 from wooz.llm import (
     DoneEvent,
     TextEvent,
@@ -14,69 +19,67 @@ from wooz.llm import (
     make_client,
     run_agent,
 )
-from wooz.spotify import SpotifyAuthError, get_client, has_valid_token
+from wooz.spotify import SpotifyError, ensure_spotify_open
 from wooz.tools import tool_schemas
 from wooz.ui import assistant_text, thinking, tool_call, tool_result
 
 SYSTEM_PROMPT = (
-    "You are wooz, an AI DJ for developer terminals. "
-    "\n\n"
-    "STRICT workflow — do not deviate:\n"
+    "You are wooz, an AI DJ for developer terminals. Pick ONE track that matches "
+    "what the user is working on right now.\n"
+    "\n"
+    "STRICT workflow:\n"
     "1. read_project_context — ONCE\n"
     "2. read_claude_session — ONCE\n"
-    "3. spotify_search — AT MOST 2 calls, each with a focused query. Aim for ~20 "
-    "tracks total across the two calls.\n"
-    "4. spotify_play_tracks — ONCE, passing ALL the track URIs you gathered from "
-    "the searches, in the order you want them played.\n"
-    "5. Final summary — ONE short sentence stating the vibe you picked.\n"
+    "3. spotify_search — at most TWO calls, focused vibe queries\n"
+    "4. spotify_play_track — ONCE, the single best track from your searches\n"
+    "5. Final summary — ONE short sentence describing the vibe\n"
     "\n"
-    "RULES:\n"
-    "- Do NOT narrate between tool calls. No 'let me check', no 'going deeper'. "
-    "Just call the next tool silently.\n"
-    "- Do NOT refine searches after the first two. Commit to what you got.\n"
-    "- Do NOT use artist:X queries — they return poor results. Use vibe/genre/mood "
-    "phrases instead."
+    "Rules:\n"
+    "- Single track only. Never queue or play more than one.\n"
+    "- No narration between tool calls.\n"
+    "- No artist:X queries — they return noise."
 )
 
-USER_PROMPT = "DJ me a set for what I'm working on right now."
+USER_PROMPT = "DJ me a track for what I'm working on right now."
+
+
+def _ensure_anthropic_key(console: Console) -> str:
+    """Return the key, prompting + saving it if not configured anywhere."""
+    try:
+        return get_anthropic_key()
+    except MissingAnthropicKeyError:
+        pass
+    console.print(
+        "[yellow]No Anthropic API key found.[/]  "
+        "[dim](get one at https://console.anthropic.com/settings/keys)[/]"
+    )
+    key = Prompt.ask("[bold]Paste your key[/]").strip()
+    while not key.startswith("sk-ant-"):
+        console.print("[red]That doesn't look like an Anthropic key (starts with sk-ant-).[/]")
+        key = Prompt.ask("[bold]Paste your key[/]").strip()
+    save_anthropic_key(key)
+    console.print("[green]✓[/] saved to [dim]~/.wooz/.env[/]\n")
+    return key
 
 
 def run(
     console: Console,
     mood: str | None = None,
-    duration: int | None = None,
     verbose: bool = False,
 ) -> int:
-    """Run wooz: verify auth, then drive the Claude agent loop with a visible UI."""
-    try:
-        get_anthropic_key()
-    except MissingAnthropicKeyError as exc:
-        console.print(f"[red]error:[/] {exc}")
-        return 1
-    console.print("[green]✓[/] anthropic key found")
+    _ensure_anthropic_key(console)
+    console.print("[green]✓[/] anthropic key ready")
 
-    if not has_valid_token():
-        console.print("[dim]first run — opening Spotify auth in your browser...[/]")
     try:
-        sp = get_client()
-        user = sp.current_user()
-    except MissingSpotifySecretError as exc:
+        ensure_spotify_open()
+    except SpotifyError as exc:
         console.print(f"[red]error:[/] {exc}")
         return 1
-    except SpotifyAuthError as exc:
-        console.print(f"[red]error:[/] {exc}")
-        return 1
-    except Exception as exc:
-        console.print(f"[red]error:[/] spotify auth failed: {exc}")
-        return 1
-    who = user.get("display_name") or user.get("id")
-    console.print(f"[green]✓[/] spotify authed as [bold]{who}[/]\n")
+    console.print("[green]✓[/] spotify ready\n")
 
     user_prompt = USER_PROMPT
     if mood:
-        user_prompt += f"\n\nThe user wants the vibe to lean: {mood}."
-    if duration:
-        user_prompt += f"\n\nTarget playlist length: ~{duration} minutes."
+        user_prompt += f"\n\nVibe hint from the user: {mood}."
 
     claude = make_client()
     events = run_agent(

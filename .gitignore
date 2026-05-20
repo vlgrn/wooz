@@ -18,6 +18,7 @@ wheels/
 .env
 .env.*
 !.env.example
+.cache
 
 # OS
 .DS_Store

@@ -1,11 +1,8 @@
-"""Spotify backend — confidential OAuth 2.0 via spotipy.
+"""Spotify backend — zero-setup for the end user.
 
-First run opens a browser; user approves; tokens cached at ~/.wooz/spotify.json.
-Subsequent runs load from cache and auto-refresh when expired.
-
-We use confidential OAuth (client_id + client_secret) rather than PKCE because
-Spotify rejects PKCE-issued tokens on certain write endpoints (e.g. create
-playlist) with a generic 403.
+Search uses Spotify's `client_credentials` flow with a baked-in app key (read-only,
+no user OAuth needed). Playback is driven through the local Spotify desktop app
+via AppleScript on macOS (no API, no Premium dance via web).
 """
 
 from __future__ import annotations
@@ -17,62 +14,33 @@ import time
 from pathlib import Path
 
 import spotipy
-from spotipy.cache_handler import CacheFileHandler
-from spotipy.oauth2 import SpotifyOAuth
+from spotipy.oauth2 import SpotifyClientCredentials
 
-from wooz.config import (
-    SPOTIFY_CLIENT_ID,
-    SPOTIFY_REDIRECT_URI,
-    SPOTIFY_SCOPES,
-    SPOTIFY_TOKEN_FILE,
-    ensure_config_dir,
-    get_spotify_client_secret,
-)
+# Shared "wooz public" Spotify app — used only for catalog search.
+# Spotify rate-limits the app, not individual users. No user data passes through.
+WOOZ_PUBLIC_CLIENT_ID = "9fd508c4c6564b58af5011f5780ef6da"
+WOOZ_PUBLIC_CLIENT_SECRET = "b2355016f52e424580be7c1d690a763d"
 
 LAUNCH_WAIT_ATTEMPTS = 10
-LAUNCH_WAIT_DELAY_S = 1.0
+LAUNCH_WAIT_DELAY_S = 0.5
 
 
-class SpotifyAuthError(RuntimeError):
-    """Raised when Spotify auth cannot be completed."""
+class SpotifyError(RuntimeError):
+    """Generic Spotify failure (no app open, no track, etc)."""
 
 
-def _auth_manager(open_browser: bool = True) -> SpotifyOAuth:
-    ensure_config_dir()
-    return SpotifyOAuth(
-        client_id=SPOTIFY_CLIENT_ID,
-        client_secret=get_spotify_client_secret(),
-        redirect_uri=SPOTIFY_REDIRECT_URI,
-        scope=SPOTIFY_SCOPES,
-        cache_handler=CacheFileHandler(cache_path=str(SPOTIFY_TOKEN_FILE)),
-        open_browser=open_browser,
+# ── Search ──────────────────────────────────────────────────────────────────
+
+
+def get_search_client() -> spotipy.Spotify:
+    auth = SpotifyClientCredentials(
+        client_id=WOOZ_PUBLIC_CLIENT_ID,
+        client_secret=WOOZ_PUBLIC_CLIENT_SECRET,
     )
-
-
-def has_valid_token() -> bool:
-    """True if a cached token exists and is still usable (refresh OK)."""
-    try:
-        manager = _auth_manager(open_browser=False)
-        token_info = manager.cache_handler.get_cached_token()
-        if not token_info:
-            return False
-        # Refresh if near expiry; returns None if refresh fails.
-        manager.validate_token(token_info)
-        return True
-    except Exception:
-        return False
-
-
-def get_client() -> spotipy.Spotify:
-    """Return an authed Spotify client. Triggers browser auth on first run."""
-    try:
-        return spotipy.Spotify(auth_manager=_auth_manager(open_browser=True))
-    except Exception as exc:
-        raise SpotifyAuthError(f"could not authenticate with Spotify: {exc}") from exc
+    return spotipy.Spotify(auth_manager=auth)
 
 
 def search_tracks(client: spotipy.Spotify, query: str, limit: int = 10) -> list[dict[str, str]]:
-    """Search Spotify tracks. Returns a list of {uri, name, artist, album, duration_ms}."""
     res = client.search(q=query, type="track", limit=limit)
     items = (res or {}).get("tracks", {}).get("items", [])
     return [
@@ -88,85 +56,90 @@ def search_tracks(client: spotipy.Spotify, query: str, limit: int = 10) -> list[
     ]
 
 
-def _try_launch_spotify() -> bool:
-    """Best-effort launch of the native Spotify app. Returns True if a launch was attempted."""
-    system = platform.system()
-    if system == "Darwin":
-        if Path("/Applications/Spotify.app").exists():
-            subprocess.Popen(["open", "-a", "Spotify"])
-            return True
-        return False
-    if system == "Linux":
-        if shutil.which("spotify"):
-            subprocess.Popen(["spotify"], start_new_session=True)
-            return True
-        return False
+# ── Playback (AppleScript / desktop control, no API auth required) ──────────
+
+
+def _run_osascript(script: str) -> str:
+    """Run an AppleScript and return stdout. Raises if osascript not on this OS."""
+    if platform.system() != "Darwin":
+        raise SpotifyError(
+            "playback control is currently macOS-only (AppleScript). Linux/Windows coming soon."
+        )
+    result = subprocess.run(
+        ["osascript", "-e", script],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise SpotifyError(result.stderr.strip() or "AppleScript failed")
+    return result.stdout.strip()
+
+
+def _spotify_installed() -> bool:
+    if platform.system() == "Darwin":
+        return Path("/Applications/Spotify.app").exists()
+    if platform.system() == "Linux":
+        return shutil.which("spotify") is not None
     return False
 
 
-def _wait_for_devices(client: spotipy.Spotify) -> list[dict[str, object]]:
-    """Poll for a Spotify device to appear after we launched the app."""
-    for _ in range(LAUNCH_WAIT_ATTEMPTS):
-        devices: list[dict[str, object]] = (client.devices() or {}).get("devices", [])
-        if devices:
-            return devices
-        time.sleep(LAUNCH_WAIT_DELAY_S)
-    return []
-
-
-def play_tracks(
-    client: spotipy.Spotify,
-    track_uris: list[str],
-) -> dict[str, object]:
-    """Start playback of `track_uris` (in order) on the user's best available device.
-    If no device is found, tries to auto-launch the native Spotify app, then waits
-    briefly for it to register as a Connect device."""
-    devices = (client.devices() or {}).get("devices", [])
-    auto_launched = False
-    if not devices and _try_launch_spotify():
-        auto_launched = True
-        devices = _wait_for_devices(client)
-
-    if not devices:
-        hint = (
-            " (we tried to launch the Spotify app but it did not register in time)"
-            if auto_launched
-            else " — open Spotify on a device, then try again"
-        )
-        raise SpotifyAuthError(f"no Spotify devices available{hint}.")
-
-    active = next((d for d in devices if d.get("is_active")), None)
-    target = active or devices[0]
-    target_id = target["id"]
-    target_name = target.get("name", "")
-
-    if not active:
-        client.transfer_playback(target_id, force_play=False)
-
-    client.start_playback(device_id=target_id, uris=track_uris)
-    return {
-        "started_count": len(track_uris),
-        "device_name": target_name,
-        "auto_launched": auto_launched,
-    }
-
-
-def get_active_device(client: spotipy.Spotify) -> dict[str, str] | None:
-    """Find an active (or first available) Spotify Connect device."""
-    devices = (client.devices() or {}).get("devices", [])
-    if not devices:
-        return None
-    active = next((d for d in devices if d.get("is_active")), devices[0])
-    return {"id": active["id"], "name": active.get("name", "")}
-
-
-def play_playlist(
-    client: spotipy.Spotify,
-    playlist_id: str,
-    device_id: str | None = None,
-) -> None:
-    """Start playback of a playlist on the given device (or active device if None)."""
-    client.start_playback(
-        device_id=device_id,
-        context_uri=f"spotify:playlist:{playlist_id}",
+def _spotify_running() -> bool:
+    if platform.system() != "Darwin":
+        return False
+    out = _run_osascript(
+        'tell application "System Events" to (name of processes) contains "Spotify"'
     )
+    return out.lower() == "true"
+
+
+def ensure_spotify_open() -> None:
+    """Launch Spotify if installed but not running; wait briefly for it to be ready."""
+    if _spotify_running():
+        return
+    if not _spotify_installed():
+        raise SpotifyError(
+            "Spotify is not installed. Get it from https://spotify.com/download "
+            "or open it in a browser at https://open.spotify.com"
+        )
+    if platform.system() == "Darwin":
+        subprocess.Popen(["open", "-a", "Spotify"])
+    elif platform.system() == "Linux":
+        subprocess.Popen(["spotify"], start_new_session=True)
+
+    for _ in range(LAUNCH_WAIT_ATTEMPTS):
+        if _spotify_running():
+            return
+        time.sleep(LAUNCH_WAIT_DELAY_S)
+
+
+def play_track(uri: str) -> None:
+    """Play a single track URI on the local Spotify desktop app."""
+    ensure_spotify_open()
+    _run_osascript(f'tell application "Spotify" to play track "{uri}"')
+
+
+def pause_playback() -> None:
+    _run_osascript('tell application "Spotify" to pause')
+
+
+def resume_playback() -> None:
+    _run_osascript('tell application "Spotify" to play')
+
+
+def player_state() -> str:
+    """Return 'playing' | 'paused' | 'stopped'."""
+    return _run_osascript('tell application "Spotify" to get player state').lower()
+
+
+def current_track() -> dict[str, str] | None:
+    """Return {name, artist, uri} for the currently loaded track, or None."""
+    try:
+        name = _run_osascript('tell application "Spotify" to get name of current track')
+        artist = _run_osascript('tell application "Spotify" to get artist of current track')
+        uri = _run_osascript('tell application "Spotify" to get spotify url of current track')
+    except SpotifyError:
+        return None
+    if not name:
+        return None
+    return {"name": name, "artist": artist, "uri": uri}

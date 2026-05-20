@@ -35,10 +35,7 @@ def _print_header() -> None:
 @app.callback(invoke_without_command=True)
 def _root(
     ctx: typer.Context,
-    mood: str | None = typer.Option(None, "--mood", help="Override the inferred vibe."),
-    duration: int | None = typer.Option(
-        None, "--duration", help="Target playlist length in minutes."
-    ),
+    mood: str | None = typer.Option(None, "--mood", help="Vibe hint for the first track."),
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Show full thinking inline instead of collapsed."
     ),
@@ -47,7 +44,7 @@ def _root(
     if ctx.invoked_subcommand is not None:
         return
     _print_header()
-    exit_code = run_agent(console, mood=mood, duration=duration, verbose=verbose)
+    exit_code = run_agent(console, mood=mood, verbose=verbose)
     if exit_code:
         raise typer.Exit(exit_code)
 
