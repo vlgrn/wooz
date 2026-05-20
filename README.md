@@ -9,69 +9,78 @@
 
 **AI DJ for your terminal — reads what you are working on, plays the right music.**
 
-`wooz` is a one-shot CLI agent. You run it in a project directory, it reads your code + recent Claude Code session, decides a vibe, finds tracks on Spotify, and starts playing on whatever device you have open. Powered by Claude (tool-use loop) and the Spotify Web API.
+`wooz` is a chat-style CLI. It reads your current project + recent Claude Code session, picks one track that matches the vibe, plays it in Spotify, and drops you into a chat where you can ask for the next track, pause, or shift the vibe — all without leaving the terminal.
 
 ---
 
-### 1. Install
+## Quick start
 
 ```bash
 uv tool install git+https://github.com/valentingarnier/wooz
-```
-
-(Or clone and `uv sync` for development.)
-
-### 2. Get an Anthropic API key
-
-Sign in at https://console.anthropic.com → Settings → API Keys → Create new key.
-
-### 3. Create a Spotify dev app
-
-Spotify locked down their API in Feb 2026, so each user needs their own dev app.
-
-1. Go to https://developer.spotify.com/dashboard → log in (you need **Spotify Premium**)
-2. Click **Create app**
-   - **Name**: anything (e.g. `wooz`)
-   - **Description**: anything
-   - **Redirect URI**: `http://127.0.0.1:8765/callback` (exact match, no trailing slash)
-   - **APIs**: tick **Web API**
-3. Open the app → **Settings** → copy the **Client ID** and **Client Secret**
-4. Open the app → **User Management** → add yourself
-   - **Name**: your Spotify display name
-   - **Email**: your Spotify account email (the one you use to log in)
-
-### 4. Set environment variables
-
-Create a `.env` in your working directory (or export globally):
-
-```env
-ANTHROPIC_API_KEY=sk-ant-...
-WOOZ_SPOTIFY_CLIENT_ID=your-client-id
-WOOZ_SPOTIFY_CLIENT_SECRET=your-client-secret
-```
-
-### 5. Run it
-
-```bash
-cd <any-project>
+cd <your-project>
 wooz
 ```
 
-First run opens a browser for Spotify OAuth approval. Subsequent runs reuse the cached token at `~/.wooz/spotify.json`.
+That's it. First run prompts you once for an [Anthropic API key](https://console.anthropic.com/settings/keys) (saved to `~/.wooz/.env` so you never have to do it again). No Spotify dev app. No client IDs. No OAuth dance.
+
+You need:
+- macOS (Linux/Windows support coming)
+- Spotify Premium (Spotify's requirement, not ours)
+- The Spotify desktop app installed (wooz auto-launches it if needed)
 
 ---
 
-## Usage
+## What it looks like
 
-```bash
-wooz                           # read context, pick a vibe, play
-wooz --mood energetic          # override the inferred vibe
-wooz --duration 30             # target ~30 minutes of music
-wooz --verbose                 # show Claude's full thinking inline
-wooz version
+```
+$ wooz
+[banner]
+✓ anthropic key ready
+✓ spotify ready
+
+▶ read_project_context
+  ⎿ project=wooz · branch=main · 5 recent commits
+    files: .py(11), .md(2), .yml(2)
+▶ read_claude_session
+  ⎿ 20 messages · latest [user]: lets ship the readme
+▶ spotify_search (query='minimal hypnotic electronic for focused coding')
+  ⎿ 10 tracks · ♪ Says — Nils Frahm  · ♪ Modularity — Cignol  · ...
+▶ spotify_play_track
+  ⎿ ♪ now playing: Says — Nils Frahm
+
+type /help for commands, or just chat in natural language
+> /next
+[searches again, plays a different track in the same vibe]
+> more upbeat
+[shifts the vibe to something with more energy]
+> /pause
+⏸  paused
+> /exit
+bye.
 ```
 
-`wooz` works best when run from inside a project directory you're actively working on — that's where the project signal (file extensions, recent commits) and the Claude Code session signal both live.
+---
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `/next` | Re-read context, search, play a new track in the current vibe |
+| `/pause` | Pause the current track |
+| `/play` | Resume |
+| `/vibe` | Show the current vibe |
+| `/help` | List commands |
+| `/exit` (also `/quit`, `/q`, Ctrl+D) | Quit |
+| _anything else_ | Free-form hint passed to the agent: `more chill`, `something with vocals`, `pick a deep cut from the 70s` |
+
+CLI flags:
+
+```bash
+wooz                     # default
+wooz --mood "energetic"  # hint for the first track
+wooz --verbose           # show Claude's full reasoning inline
+wooz version
+```
 
 ---
 
@@ -79,15 +88,19 @@ wooz version
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│  wooz CLI                                                  │
+│  wooz                                                      │
 │                                                            │
 │   ┌─────────────┐    ┌─────────┐    ┌──────────────────┐   │
-│   │   Claude    │───▶│  tools  │───▶│ Spotify Web API  │   │
-│   │ tool-use    │◀───│         │◀───│ (search + play)  │   │
+│   │   Claude    │───▶│  tools  │───▶│ Spotify search   │   │
+│   │ tool-use    │◀───│         │◀───│  (catalog API)   │   │
 │   │   loop      │    │         │    └──────────────────┘   │
 │   └─────────────┘    │         │    ┌──────────────────┐   │
+│                      │         │───▶│  AppleScript     │   │
+│                      │         │    │  ↳ Spotify.app   │   │
+│                      │         │    └──────────────────┘   │
+│                      │         │    ┌──────────────────┐   │
 │                      │         │───▶│ project context  │   │
-│                      │         │    │  (cwd, git, fs)  │   │
+│                      │         │    │  (cwd, git, fs) │   │
 │                      │         │    └──────────────────┘   │
 │                      │         │    ┌──────────────────┐   │
 │                      └─────────┘───▶│ Claude Code      │   │
@@ -100,40 +113,53 @@ wooz version
 
 | Tool | What it does |
 |---|---|
-| `read_project_context` | cwd, project name, git branch, last 5 commits, file extension counts, README excerpt |
+| `read_project_context` | cwd, project name, git branch, last 5 commits, top file extensions, README excerpt |
 | `read_claude_session` | recent user/assistant messages from `~/.claude/projects/<encoded-cwd>/<session>.jsonl` |
-| `spotify_search` | Spotify track search, returns URIs |
-| `spotify_play_tracks` | starts playback on the best available Spotify Connect device; auto-launches the Spotify app on macOS/Linux if no device is found |
+| `spotify_search` | Spotify catalog search via app-credentials flow — no per-user OAuth |
+| `spotify_play_track` | start one track on the local Spotify desktop app via AppleScript |
 
-The agent loop is strict (Claude is constrained to a 5-step workflow) so each run is fast and predictable — typically two search calls and a `play_tracks`.
+After the first run, every `/next` or natural-language hint kicks off a fresh agent loop with the **current vibe + recently played URIs** injected into the prompt. The agent picks a different track in the same mood (or shifts it when you ask).
+
+---
+
+## Why there is no Spotify setup
+
+Spotify locked down their Web API in Feb 2026: new dev apps can no longer write playlists or control playback for arbitrary users, and Extended Quota Mode is denied to individuals.
+
+`wooz` works around this by:
+
+- Using **`client_credentials` for search** — a single shared app key baked into wooz. It only authorises catalog reads, no user data passes through, no per-user dev app needed.
+- Using **AppleScript for playback** — wooz tells your local Spotify desktop app to play a track directly. Same mechanism as the keyboard play/pause shortcuts.
+
+The trade-off: macOS only for now. Linux (MPRIS) and Windows are on the roadmap.
 
 ---
 
 ## Tech stack
 
 - **Python 3.12**, packaged with **uv**
+- **Anthropic SDK** with extended-thinking enabled
 - **Typer** + **Rich** for CLI + terminal UI
-- **Anthropic SDK** with extended-thinking enabled (1024-token budget)
-- **spotipy** for confidential OAuth + Web API calls
-- **Pydantic v2** for the context models
-- Lint/format/typecheck: **ruff**, **mypy** (strict on data models)
-- Semantic-release CI on every push to `main`
+- **spotipy** for catalog search (`client_credentials` flow only)
+- **AppleScript** via `osascript` for local playback
+- **Pydantic v2** for context models
+- Lint/format/typecheck: **ruff**, **mypy** strict
+- semantic-release CI on every push to `main`
 
 ---
 
-## Notes and limits
+## Roadmap
 
-- **You need Spotify Premium.** Playback control via Spotify Connect is Premium-only.
-- **Dev mode limit: 5 users per Spotify app.** That's a Spotify policy. Each user runs their own dev app — no shared Client ID. Fine for personal use.
-- **No playlist creation.** Spotify removed playlist-write endpoints from dev-mode apps in Feb 2026. `wooz` queues tracks for playback instead of creating a saved playlist.
-- **macOS / Linux only for auto-launch.** Windows is on the roadmap.
-- **Anthropic API costs apply.** Each run uses extended thinking + 5-6 tool turns — typically ~5-10k input tokens, ~1k output tokens.
+- Linux + Windows playback (MPRIS, SMTC)
+- Auto-advance (poll Spotify state, play next track when one ends)
+- Remember vibes / taste across sessions
+- More tools: `spotify_skip`, `spotify_queue` (if Spotify reopens the API)
 
 ---
 
 ## Inspiration
 
-`wooz` started as a quick weekend project, inspired by [@steipete](https://github.com/steipete)'s [spogo](https://github.com/openclaw/spogo) — a terminal-native Spotify client that proved CLIs are still the best UI for tools you live inside of.
+`wooz` started as a weekend project inspired by [@steipete](https://github.com/steipete)'s [spogo](https://github.com/openclaw/spogo) — proof that terminal-native Spotify control is still the cleanest UI.
 
 ---
 
