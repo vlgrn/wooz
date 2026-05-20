@@ -39,12 +39,15 @@ def _root(
     duration: int | None = typer.Option(
         None, "--duration", help="Target playlist length in minutes."
     ),
+    verbose: bool = typer.Option(
+        False, "--verbose", "-v", help="Show full thinking inline instead of collapsed."
+    ),
 ) -> None:
     """Default action: run the wooz agent on the current project."""
     if ctx.invoked_subcommand is not None:
         return
     _print_header()
-    exit_code = run_agent(console, mood=mood, duration=duration)
+    exit_code = run_agent(console, mood=mood, duration=duration, verbose=verbose)
     if exit_code:
         raise typer.Exit(exit_code)
 
