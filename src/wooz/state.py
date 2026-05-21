@@ -11,6 +11,8 @@ RECENT_LIMIT = 20
 class WoozState:
     vibe: str = ""
     recent_tracks: list[str] = field(default_factory=list)  # most-recent-last
+    tokens_in: int = 0
+    tokens_out: int = 0
 
     def remember(self, uri: str, vibe: str) -> None:
         if uri and uri not in self.recent_tracks:

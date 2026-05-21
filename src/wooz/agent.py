@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from anthropic import Anthropic
-from rich.console import Console
+from rich.console import Console, Group
+from rich.live import Live
 from rich.prompt import Prompt
+from rich.spinner import Spinner
+from rich.text import Text
 
 from wooz.config import (
     MissingAnthropicKeyError,
@@ -19,17 +22,25 @@ from wooz.llm import (
     ThinkingEvent,
     ToolCallEvent,
     ToolResultEvent,
+    UsageEvent,
     make_client,
     run_agent,
 )
 from wooz.playback import PlaybackTracker
 from wooz.prompts import SYSTEM_PROMPT, build_user_prompt
 from wooz.slash import EXIT_COMMANDS, handle_slash
-from wooz.spotify import SpotifyError, ensure_spotify_open
+from wooz.spotify import SpotifyError, current_track, ensure_spotify_open
 from wooz.state import WoozState
 from wooz.theme import SPOTIFY_GREEN
 from wooz.tools import tool_schemas
-from wooz.ui import assistant_text, read_user_input, thinking, tool_call, tool_result
+from wooz.ui import (
+    assistant_text,
+    format_footer,
+    read_user_input,
+    thinking,
+    tool_call,
+    tool_result,
+)
 
 
 def run(console: Console, mood: str | None = None, verbose: bool = False) -> int:
@@ -50,7 +61,7 @@ def run(console: Console, mood: str | None = None, verbose: bool = False) -> int
     tracker.start()
 
     try:
-        _run_one_turn(console, claude, state, hint=mood, verbose=verbose)
+        _run_one_turn(console, claude, state, tracker, hint=mood, verbose=verbose)
         console.print()
         console.print("[dim]type /help for commands, or just chat in natural language[/]")
         return _repl(console, claude, state, tracker, verbose=verbose)
@@ -68,7 +79,7 @@ def _repl(
 ) -> int:
     while True:
         try:
-            user_input = read_user_input(console, tracker=tracker).strip()
+            user_input = read_user_input(console, tracker=tracker, state=state).strip()
         except (EOFError, KeyboardInterrupt):
             console.print("\n[dim]bye.[/]")
             return 0
@@ -79,13 +90,14 @@ def _repl(
             console.print("[dim]bye.[/]")
             return 0
         if user_input == "/next":
-            _run_one_turn(console, claude, state, verbose=verbose)
+            _run_one_turn(console, claude, state, tracker, verbose=verbose)
             continue
         if user_input == "/skip":
             _run_one_turn(
                 console,
                 claude,
                 state,
+                tracker,
                 hint="The last track wasn't right, go in another direction",
                 verbose=verbose,
             )
@@ -95,13 +107,14 @@ def _repl(
             continue
 
         # Free-form text → another agent turn with the user's hint.
-        _run_one_turn(console, claude, state, hint=user_input, verbose=verbose)
+        _run_one_turn(console, claude, state, tracker, hint=user_input, verbose=verbose)
 
 
 def _run_one_turn(
     console: Console,
     claude: Anthropic,
     state: WoozState,
+    tracker: PlaybackTracker,
     *,
     hint: str | None = None,
     verbose: bool = False,
@@ -111,18 +124,31 @@ def _run_one_turn(
         client=claude,
         tools=tool_schemas(),
         system_prompt=SYSTEM_PROMPT,
-        user_prompt=build_user_prompt(state, hint),
+        user_prompt=build_user_prompt(state, current_track(), hint),
     )
+
+    def make_live() -> Group:
+        return Group(
+            Spinner("dots", text=Text(" thinking", style=f"bold {SPOTIFY_GREEN}")),
+            Text(format_footer(tracker, state), style=SPOTIFY_GREEN),
+        )
+
     try:
-        while True:
-            with console.status(f"[bold {SPOTIFY_GREEN}]thinking[/]", spinner="dots"):
+        with Live(
+            make_live(),
+            console=console,
+            refresh_per_second=4,
+            transient=True,
+        ) as live:
+            while True:
                 try:
                     event = next(events)
                 except StopIteration:
                     return
-            _render_event(console, state, event, verbose=verbose)
-            if isinstance(event, DoneEvent):
-                return
+                _render_event(console, state, event, verbose=verbose)
+                live.update(make_live())
+                if isinstance(event, DoneEvent):
+                    return
     except Exception as exc:
         report_anthropic_error(console, exc)
 
@@ -147,6 +173,9 @@ def _render_event(
         tool_result(console, event.name, event.output)
     elif isinstance(event, TextEvent):
         assistant_text(console, event.text)
+    elif isinstance(event, UsageEvent):
+        state.tokens_in += event.input_tokens
+        state.tokens_out += event.output_tokens
 
 
 def _ensure_anthropic_key(console: Console) -> str:

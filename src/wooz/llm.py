@@ -48,7 +48,13 @@ class DoneEvent:
     pass
 
 
-AgentEvent = TextEvent | ThinkingEvent | ToolCallEvent | ToolResultEvent | DoneEvent
+@dataclass
+class UsageEvent:
+    input_tokens: int
+    output_tokens: int
+
+
+AgentEvent = TextEvent | ThinkingEvent | ToolCallEvent | ToolResultEvent | DoneEvent | UsageEvent
 
 
 def run_agent(
@@ -69,6 +75,10 @@ def run_agent(
             tools=tools,
             messages=messages,
             thinking={"type": "enabled", "budget_tokens": 1024},
+        )
+
+        yield UsageEvent(
+            input_tokens=response.usage.input_tokens, output_tokens=response.usage.output_tokens
         )
 
         # Surface thinking + text Claude produced this turn.

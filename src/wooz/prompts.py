@@ -22,11 +22,17 @@ SYSTEM_PROMPT = (
 )
 
 
-def build_user_prompt(state: WoozState, hint: str | None) -> str:
+def build_user_prompt(
+    state: WoozState, current_track: dict[str, str] | None, hint: str | None
+) -> str:
     parts: list[str] = [hint] if hint else ["Pick a track for me."]
     if state.vibe:
         parts.append(f"My current vibe is: {state.vibe}.")
     if state.recent_tracks:
         avoid = ", ".join(state.recent_tracks[-15:])
         parts.append(f"Don't repeat any of these recently played URIs: {avoid}")
+    if current_track:
+        name = current_track.get("name", "")
+        artist = current_track.get("artist", "")
+        parts.append(f"Currently playing '{name}' by {artist}.")
     return "\n\n".join(parts)

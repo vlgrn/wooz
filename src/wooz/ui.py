@@ -11,9 +11,13 @@ from rich.console import Console
 from rich.panel import Panel
 
 from wooz.playback import PlaybackState, PlaybackTracker
+from wooz.state import WoozState
 from wooz.theme import ASSISTANT_PINK, SPOTIFY_GREEN
 
 PROGRESS_BAR_WIDTH = 14
+
+INPUT_PRICE_PER_MTOK = 3.0
+OUTPUT_PRICE_PER_MTOK = 15.0
 
 _PT_STYLE = Style.from_dict(
     {
@@ -74,27 +78,54 @@ def _mmss(seconds: float) -> str:
 
 def _format_progress(state: PlaybackState) -> str:
     if not state.has_track:
-        return "  waiting for playback…"
+        return ""
     position = state.extrapolated_position()
     pct = min(1.0, position / state.duration_s) if state.duration_s > 0 else 0.0
     filled = int(PROGRESS_BAR_WIDTH * pct)
     bar = "▰" * filled + "▱" * (PROGRESS_BAR_WIDTH - filled)
     icon = "♪" if state.is_playing else "⏸"
     track = f"{state.name} — {state.artist}" if state.artist else state.name
-    return f"  {icon} {track}  {bar}  {_mmss(position)} / {_mmss(state.duration_s)}"
+    return f"{icon} {track}  {bar}  {_mmss(position)} / {_mmss(state.duration_s)}"
 
 
-def read_user_input(console: Console, tracker: PlaybackTracker | None = None) -> str:
+def _format_usage(state: WoozState) -> str:
+    cost = (
+        state.tokens_in * INPUT_PRICE_PER_MTOK + state.tokens_out * OUTPUT_PRICE_PER_MTOK
+    ) / 1_000_000
+    return f"↑{state.tokens_in:,} ↓{state.tokens_out:,} ${cost:.4f}"
+
+
+def format_footer(tracker: PlaybackTracker | None, state: WoozState | None) -> str:
+    """Combined footer used by both the prompt and the agent-turn live display."""
+    parts: list[str] = []
+    if tracker is not None:
+        track = _format_progress(tracker.snapshot())
+        if track:
+            parts.append(track)
+    if state is not None:
+        parts.append(_format_usage(state))
+    return "   ".join(parts)
+
+
+def read_user_input(
+    console: Console,
+    tracker: PlaybackTracker | None = None,
+    state: WoozState | None = None,
+) -> str:
     """One line of input inside a green-bordered zone, with optional live playback footer."""
     width = max(20, console.width - 1)
     rule = "─" * (width - 2)
     console.print(f"[bold {SPOTIFY_GREEN}]╭{rule}╮[/]")
-    bottom_toolbar = (lambda: _format_progress(tracker.snapshot())) if tracker is not None else None
+
+    def bottom_toolbar() -> str:
+        return format_footer(tracker, state)
+
+    has_footer = tracker is not None or state is not None
     try:
         return _get_session().prompt(
             HTML(f'<style fg="{SPOTIFY_GREEN}"><b>│ ❯ </b></style>'),  # noqa: RUF001
-            bottom_toolbar=bottom_toolbar,
-            refresh_interval=1.0 if tracker is not None else 0,
+            bottom_toolbar=bottom_toolbar if has_footer else None,
+            refresh_interval=1.0 if has_footer else 0,
             style=_PT_STYLE,
         )
     finally:

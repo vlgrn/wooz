@@ -1,10 +1,3 @@
-"""Spotify backend: catalog search + local desktop playback control.
-
-Search uses Spotify's `client_credentials` flow with a baked-in app key
-(read-only, no user OAuth). Playback is driven through the local Spotify
-desktop app via AppleScript on macOS (no API, no Premium dance via web).
-"""
-
 from __future__ import annotations
 
 import platform
@@ -26,9 +19,6 @@ LAUNCH_WAIT_DELAY_S = 0.5
 
 class SpotifyError(RuntimeError):
     """Generic Spotify failure (no app open, no track, etc)."""
-
-
-# ── Search (Web API) ────────────────────────────────────────────────────────
 
 
 def get_search_client() -> spotipy.Spotify:
@@ -53,9 +43,6 @@ def search_tracks(client: spotipy.Spotify, query: str, limit: int = 10) -> list[
         }
         for t in items
     ]
-
-
-# ── Desktop playback (AppleScript) ──────────────────────────────────────────
 
 
 def run_osascript(script: str) -> str:
