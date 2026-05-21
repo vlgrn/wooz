@@ -11,6 +11,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 
+from wooz import __version__
 from wooz.playback import PlaybackState, PlaybackTracker
 from wooz.state import WoozState
 from wooz.theme import ASSISTANT_PINK, SPOTIFY_GREEN
@@ -19,6 +20,22 @@ PROGRESS_BAR_WIDTH = 14
 
 INPUT_PRICE_PER_MTOK = 3.0
 OUTPUT_PRICE_PER_MTOK = 15.0
+
+BANNER = r"""
+██╗    ██╗ ██████╗  ██████╗ ███████╗
+██║    ██║██╔═══██╗██╔═══██╗╚══███╔╝
+██║ █╗ ██║██║   ██║██║   ██║  ███╔╝
+██║███╗██║██║   ██║██║   ██║ ███╔╝
+╚███╔███╔╝╚██████╔╝╚██████╔╝███████╗
+ ╚══╝╚══╝  ╚═════╝  ╚═════╝ ╚══════╝
+ """
+
+TAGLINE = "AI DJ for your terminal - reads what you are working on, plays the right music."
+
+
+def print_header(console: Console) -> None:
+    console.print(BANNER, style=f"bold {SPOTIFY_GREEN}")
+    console.print(f"wooz {__version__} — [dim]{TAGLINE}[/]\n")
 
 _PT_STYLE = Style.from_dict(
     {

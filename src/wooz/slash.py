@@ -7,6 +7,7 @@ from rich.console import Console
 from wooz.spotify import SpotifyError, pause_playback, player_state, resume_playback
 from wooz.state import WoozState
 from wooz.theme import SPOTIFY_GREEN
+from wooz.ui import print_header
 
 EXIT_COMMANDS = {"/exit", "/quit", "/q"}
 
@@ -17,6 +18,7 @@ SLASH_HELP = f"""\
   [{SPOTIFY_GREEN}]/pause[/]           pause playback
   [{SPOTIFY_GREEN}]/play[/]            resume playback
   [{SPOTIFY_GREEN}]/vibe[/]            show the current vibe
+  [{SPOTIFY_GREEN}]/clear[/]           clear the screen
   [{SPOTIFY_GREEN}]/help[/]            show this help
   [{SPOTIFY_GREEN}]/exit[/]            quit (also /quit, /q, Ctrl+D)
 or just type anything in natural language ([dim]e.g. "more upbeat"[/])"""
@@ -42,5 +44,10 @@ def handle_slash(console: Console, state: WoozState, cmd: str) -> None:
             console.print(f"[dim]▶  {player_state()}[/]")
         except SpotifyError as exc:
             console.print(f"[red]{exc}[/]")
+    elif head == "/clear":
+        console.clear()
+        print_header(console)
+        console.print("[green]✓[/] anthropic key ready")
+        console.print("[green]✓[/] spotify ready\n")
     else:
         console.print(f"[red]unknown command:[/] {head}  [dim](/help)[/]")
