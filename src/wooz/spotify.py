@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 import spotipy
+from spotipy.cache_handler import MemoryCacheHandler
 from spotipy.oauth2 import SpotifyClientCredentials
 
 # Public app key — only used for catalog search. No user data passes through.
@@ -25,6 +26,7 @@ def get_search_client() -> spotipy.Spotify:
     auth = SpotifyClientCredentials(
         client_id=WOOZ_PUBLIC_CLIENT_ID,
         client_secret=WOOZ_PUBLIC_CLIENT_SECRET,
+        cache_handler=MemoryCacheHandler(),
     )
     return spotipy.Spotify(auth_manager=auth)
 
