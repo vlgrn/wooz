@@ -68,7 +68,7 @@ def run_agent(
     messages: list[dict[str, Any]] = [{"role": "user", "content": user_prompt}]
 
     for _ in range(MAX_ITERATIONS):
-        response = client.messages.create(
+        response = client.messages.create(  # type: ignore[call-overload]
             model=model,
             max_tokens=MAX_TOKENS,
             system=system_prompt,

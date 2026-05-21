@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from anthropic import Anthropic
-from rich.console import Console, Group
+from rich.console import Console
 from rich.live import Live
 from rich.prompt import Prompt
 from rich.spinner import Spinner
@@ -127,11 +127,10 @@ def _run_one_turn(
         user_prompt=build_user_prompt(state, current_track(), hint),
     )
 
-    def make_live() -> Group:
-        return Group(
-            Spinner("dots", text=Text(" thinking", style=f"bold {SPOTIFY_GREEN}")),
-            Text(format_footer(tracker, state), style=SPOTIFY_GREEN),
-        )
+    def make_live() -> Spinner:
+        footer = format_footer(tracker, state)
+        label = f" thinking   {footer}" if footer else " thinking"
+        return Spinner("dots", text=Text(label, style=f"bold {SPOTIFY_GREEN}"))
 
     try:
         with Live(

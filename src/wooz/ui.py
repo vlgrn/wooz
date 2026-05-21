@@ -8,6 +8,7 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.styles import Style
 from rich.console import Console
+from rich.markdown import Markdown
 from rich.panel import Panel
 
 from wooz.playback import PlaybackState, PlaybackTracker
@@ -54,7 +55,7 @@ def thinking(console: Console, text: str, verbose: bool = False) -> None:
 
 
 def assistant_text(console: Console, text: str) -> None:
-    console.print(Panel(text.strip(), border_style=ASSISTANT_PINK, padding=(0, 1)))
+    console.print(Panel(Markdown(text.strip()), border_style=ASSISTANT_PINK, padding=(0, 1)))
 
 
 # ── Input prompt with live footer ───────────────────────────────────────────
