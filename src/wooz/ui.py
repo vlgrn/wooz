@@ -37,6 +37,7 @@ def print_header(console: Console) -> None:
     console.print(BANNER, style=f"bold {SPOTIFY_GREEN}")
     console.print(f"wooz {__version__} — [dim]{TAGLINE}[/]\n")
 
+
 _PT_STYLE = Style.from_dict(
     {
         "prompt": f"bold fg:{SPOTIFY_GREEN}",
