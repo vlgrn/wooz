@@ -13,6 +13,7 @@ EXIT_COMMANDS = {"/exit", "/quit", "/q"}
 SLASH_HELP = f"""\
 [bold]commands[/]
   [{SPOTIFY_GREEN}]/next[/]            play a different track (re-reads context)
+  [{SPOTIFY_GREEN}]/skip[/]            skip to the next track (ban this music)
   [{SPOTIFY_GREEN}]/pause[/]           pause playback
   [{SPOTIFY_GREEN}]/play[/]            resume playback
   [{SPOTIFY_GREEN}]/vibe[/]            show the current vibe

@@ -108,7 +108,7 @@ def ensure_spotify_open() -> None:
         return
     if not _spotify_installed():
         raise SpotifyError(
-            "Spotify is not installed. Get it from https://spotify.com/download "
+            "Spotify is not installed. Get it from https://spotify.com/download"
             "or open it in a browser at https://open.spotify.com"
         )
     if platform.system() == "Darwin":

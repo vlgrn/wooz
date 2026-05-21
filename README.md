@@ -54,9 +54,3 @@ Or use a slash command:
 | `/vibe` | Show the current vibe |
 | `/help` | Show commands |
 | `/exit` | Quit (also `/quit`, `/q`, Ctrl+D) |
-
----
-
-## License
-
-MIT

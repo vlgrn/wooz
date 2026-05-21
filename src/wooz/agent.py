@@ -81,6 +81,15 @@ def _repl(
         if user_input == "/next":
             _run_one_turn(console, claude, state, verbose=verbose)
             continue
+        if user_input == "/skip":
+            _run_one_turn(
+                console,
+                claude,
+                state,
+                hint="The last track wasn't right, go in another direction",
+                verbose=verbose,
+            )
+            continue
         if user_input.startswith("/"):
             handle_slash(console, state, user_input)
             continue
