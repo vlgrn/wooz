@@ -12,10 +12,12 @@
 [![CI](https://github.com/vlgrn/wooz/actions/workflows/ci.yml/badge.svg)](https://github.com/vlgrn/wooz/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
 [![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)](#install)
-[![GitHub stars](https://img.shields.io/github/stars/vlgrn/wooz?style=social)](https://github.com/vlgrn/wooz/stargazers)
+[![GitHub stars](https://img.shields.io/github/stars/vlgrn/wooz?label=Stars&logo=github)](https://github.com/vlgrn/wooz/stargazers)
 
 <p align="center">
-  <video src="https://github.com/vlgrn/wooz/raw/main/assets/demo.mp4" controls autoplay loop muted playsinline width="800"></video>
+  <a href="https://github.com/vlgrn/wooz/raw/main/assets/demo.mp4">
+    <img src="https://github.com/vlgrn/wooz/raw/main/assets/demo.gif" alt="wooz demo" width="800">
+  </a>
 </p>
 
 wooz looks at what you're working on (your project + your recent Claude Code session), picks a track that matches the vibe, and plays it in Spotify. Then it stays open as a chat — type what you want and it picks again.
