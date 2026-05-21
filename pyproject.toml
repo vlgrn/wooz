@@ -3,6 +3,8 @@ name = "wooz"
 version = "2.4.0"
 description = "AI DJ for your terminal — reads what you are working on, plays the right music."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Valentin Garnier", email = "valentingarnier@live.fr" }
 ]
