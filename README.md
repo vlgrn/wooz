@@ -16,8 +16,11 @@ wooz looks at what you're working on (your project + your recent Claude Code ses
 ## Install
 
 ```bash
-uv tool install git+https://github.com/vlgrn/wooz
+uv tool install --python 3.12 git+https://github.com/vlgrn/wooz
+uv tool update-shell   # one-time: adds ~/.local/bin to PATH (restart your shell after)
 ```
+
+> `--python 3.12` is required — wooz needs Python ≥3.12. Without it, uv may pick whatever Python is on PATH (e.g. conda's base) and the install will break.
 
 Requires:
 - macOS
@@ -48,9 +51,11 @@ Or use a slash command:
 
 | Command | What it does |
 |---|---|
-| `/next` | Play a different track |
+| `/next` | Play a different track (re-reads context) |
+| `/skip` | Skip to the next track (ban this music) |
 | `/pause` | Pause |
 | `/play` | Resume |
 | `/vibe` | Show the current vibe |
+| `/clear` | Clear the screen |
 | `/help` | Show commands |
 | `/exit` | Quit (also `/quit`, `/q`, Ctrl+D) |
