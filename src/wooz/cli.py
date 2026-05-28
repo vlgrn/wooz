@@ -24,12 +24,15 @@ def _root(
     verbose: bool = typer.Option(
         False, "--verbose", "-v", help="Show full thinking inline instead of collapsed."
     ),
+    once: bool = typer.Option(
+        False, "--once", help="Pick and play one track, then exit (no chat REPL)."
+    ),
 ) -> None:
     """Default action: run the wooz agent on the current project."""
     if ctx.invoked_subcommand is not None:
         return
     print_header(console)
-    exit_code = run_agent(console, mood=mood, verbose=verbose)
+    exit_code = run_agent(console, mood=mood, verbose=verbose, once=once)
     if exit_code:
         raise typer.Exit(exit_code)
 

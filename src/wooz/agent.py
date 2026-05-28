@@ -43,9 +43,25 @@ from wooz.ui import (
 )
 
 
-def run(console: Console, mood: str | None = None, verbose: bool = False) -> int:
-    """Entry point: check setup, do the first track pick, drop into the REPL."""
-    _ensure_anthropic_key(console)
+def run(
+    console: Console, mood: str | None = None, verbose: bool = False, once: bool = False
+) -> int:
+    """Entry point: check setup, do the first track pick, drop into the REPL.
+
+    With ``once=True`` the agent picks and plays a single track, then exits — no
+    interactive prompts — so it can be driven by an automation/agent loop.
+    """
+    if once:
+        try:
+            get_anthropic_key()
+        except MissingAnthropicKeyError:
+            console.print(
+                "[red]error:[/] no Anthropic API key. Run [bold]wooz[/] once interactively "
+                "to set it up, or set ANTHROPIC_API_KEY."
+            )
+            return 1
+    else:
+        _ensure_anthropic_key(console)
     console.print("[green]✓[/] anthropic key ready")
 
     try:
@@ -62,6 +78,8 @@ def run(console: Console, mood: str | None = None, verbose: bool = False) -> int
 
     try:
         _run_one_turn(console, claude, state, tracker, hint=mood, verbose=verbose)
+        if once:
+            return 0
         console.print()
         console.print("[dim]type /help for commands, or just chat in natural language[/]")
         return _repl(console, claude, state, tracker, verbose=verbose)
